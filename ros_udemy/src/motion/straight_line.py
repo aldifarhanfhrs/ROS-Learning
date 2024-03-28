@@ -5,12 +5,12 @@ from turtlesim.msg import Pose
 import math
 import time
 
-def pose_callback(pose_message):
+def pose_callback(data):
     global x, y, yaw
     
-    x = pose_message.x
-    y = pose_message.y
-    yaw = pose_message.theta
+    x = data.x
+    y = data.y
+    yaw = data.theta
 
 def move(velocity_publisher, speed, distance, is_forward):
     global x, y
@@ -19,42 +19,36 @@ def move(velocity_publisher, speed, distance, is_forward):
     x0 = x
     y0 = y
 
+    distance_moved = 0.0
+    rate = rospy.Rate(5)
+
     if is_forward:
         velocity_message.linear.x = abs(speed)
     else:
         velocity_message.linear.x = -abs(speed)
 
-    distance_moved = 0.0
-    loop_rate = rospy.Rate(10)
-
     while True:
-
-        rospy.loginfo('Turtlesim Moves Forward')
         velocity_publisher.publish(velocity_message)
-        loop_rate.sleep()
 
-        distance_moved = math.sqrt((x - x0)**2 + (y - y0)**2)
-        print(distance_moved)
-        #print(x)
-        if not distance_moved < distance:
+        distance_moved = math.sqrt(abs((x - x0)**2 + (y - y0)**2))
+        rate.sleep()
+        print('Pose x, y: {}, {}'.format(x, y))
+        print()
+
+        if distance_moved >= distance:
             rospy.loginfo('Target Reached')
+            velocity_message.linear.x = 0
+            velocity_publisher.publish(velocity_message)
             break
-    
-    velocity_message.linear.x = 0
-    velocity_publisher.publish(velocity_message)
-
 if __name__ == '__main__':
     try:
-        rospy.init_node('turtlesim_motion_pose', anonymous= True)
+        rospy.init_node('turtlesim_velocity_pose', anonymous= True)
 
-        cmd_vel_topic = '/turtle1/cmd_vel'
-        velocity_publisher = rospy.Publisher(cmd_vel_topic, Twist, queue_size=10)
-        
-        position_topic = '/turtle1/pose'
-        pose_subscriber = rospy.Subscriber(position_topic, Pose, pose_callback)
-        time.sleep(2)
+        velocity_publisher = rospy.Publisher('turtle1/cmd_vel', Twist, queue_size=10)
+        velocity_subscriber = rospy.Subscriber('turtle1/pose', Pose, pose_callback)
+        time.sleep(1)
 
-        move(velocity_publisher, 1.0, 4.0, False)
-        
+        move(velocity_publisher, 1.0, 4.5, True)
+
     except rospy.ROSInterruptException:
-        rospy.loginfo('node terminated')
+        rospy.loginfo('Node Interupted')
